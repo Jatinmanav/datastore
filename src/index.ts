@@ -1,4 +1,6 @@
-class DataStore {
+import IDataStore from "./types/IDataStore";
+
+class DataStore implements IDataStore {
   private filePath: string;
   private fs = require("fs");
   private path = require("path");
@@ -9,17 +11,28 @@ class DataStore {
       : this.path.join(__dirname, "datastore.json");
   }
 
+  createFile = () => {
+    return new Promise<boolean>((resolve, reject) => {
+      this.fs.writeFile(this.filePath, "{}", (err: Error) => {
+        if (err) reject(err);
+        resolve(true);
+      });
+    });
+  };
+
   getFilePath = () => {
     return this.filePath;
   };
 
   getFileData = () => {
-    this.fs.readFile(this.filePath, (err: any, data: any) => {
-      console.log("Data: ", data);
-      console.log("Error: ", err);
-      if (err.code === "ENOENT") {
-        throw Error("File not Present");
-      }
+    return new Promise<Buffer>((resolve, reject) => {
+      this.fs.readFile(this.filePath, (err: any, data: Buffer) => {
+        if (err && err.code === "ENOENT") {
+          reject("File not Present");
+        } else {
+          resolve(data);
+        }
+      });
     });
   };
 }
