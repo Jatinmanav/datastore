@@ -1,5 +1,6 @@
 export default interface IDataStore {
-  createFile(): Promise<boolean>;
+  createFile(filePath?: string): Promise<boolean>;
   getFilePath(): string;
-  getFileData(): Promise<Buffer>;
+  getFileData(): Promise<string>;
+  addValue(key: string, value: Object): Promise<boolean>;
 }
