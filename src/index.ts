@@ -11,10 +11,19 @@ class DataStore implements IDataStore {
       : this.path.join(__dirname, "datastore.json");
     return new Promise<boolean>((resolve, reject) => {
       this.fs.writeFile(this.filePath, "{}", (err: Error) => {
-        if (err) reject(err);
+        if (err) return reject(err);
         resolve(true);
       });
     });
+  };
+
+  deleteFile = () => {
+    return new Promise<boolean>((resovle, reject) =>
+      this.fs.unlink(this.getFilePath(), (err: any) => {
+        if (err) return reject(err);
+        resovle(true);
+      })
+    );
   };
 
   getFilePath = () => {
@@ -26,9 +35,9 @@ class DataStore implements IDataStore {
     return new Promise<string>((resolve, reject) => {
       this.fs.readFile(this.filePath, (err: any, data: string) => {
         if (err && err.code === "ENOENT") {
-          reject("File not Present");
+          return reject("File not Present");
         } else if (err) {
-          reject(err);
+          return reject(err);
         } else {
           resolve(data);
         }
@@ -41,18 +50,46 @@ class DataStore implements IDataStore {
       this.getFileData()
         .then((data: string) => {
           const jsonData = JSON.parse(data);
-          if (key in jsonData) throw new Error("Key already exists");
+          if (key in jsonData) return reject("Key already exists");
           jsonData[key] = value;
           this.fs.writeFile(
             this.filePath,
             JSON.stringify(jsonData),
             (err: any) => {
-              if (err) reject(err);
+              if (err) return reject(err);
               resolve(true);
             }
           );
         })
         .catch((err) => reject(err));
+    });
+  };
+
+  getValue = (key: string) => {
+    return new Promise<Object>((resolve, reject) => {
+      this.getFileData().then((data: string) => {
+        const jsonData = JSON.parse(data);
+        if (key in jsonData === false) return reject("Key doesn't exist");
+        resolve(jsonData[key]);
+      });
+    });
+  };
+
+  deleteValue = (key: string) => {
+    return new Promise<boolean>((resolve, reject) => {
+      this.getFileData().then((data: string) => {
+        const jsonData = JSON.parse(data);
+        if (key in jsonData === false) return reject("Key doesn't exist");
+        delete jsonData[key];
+        this.fs.writeFile(
+          this.filePath,
+          JSON.stringify(jsonData),
+          (err: any) => {
+            if (err) return reject(err);
+            resolve(true);
+          }
+        );
+      });
     });
   };
 }

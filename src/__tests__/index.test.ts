@@ -12,12 +12,16 @@ beforeAll(async () => {
   dataStore2 = new DataStore();
 });
 
-test("Data Store is initialized", () => {
+afterAll(async () => {
+  if (dataStore) await dataStore.deleteFile();
+});
+
+test("Data store is initialized", () => {
   if (dataStore)
     expect(dataStore.getFilePath()).toBe(path.resolve("test.json"));
 });
 
-test("Read Data Store File", async () => {
+test("Read data store file", async () => {
   if (dataStore) {
     dataStore.getFileData().then((data) => {
       const jsonData = JSON.parse(data);
@@ -30,7 +34,7 @@ test("Read Data Store File", async () => {
   }
 });
 
-test("Check if File is Created", async () => {
+test("Check if file is created", async () => {
   if (dataStore) {
     fs.access(dataStore.getFilePath(), fs.constants.F_OK, (err) => {
       expect(err).toBeFalsy();
@@ -38,7 +42,7 @@ test("Check if File is Created", async () => {
   }
 });
 
-test("Write to File", async () => {
+test("Write to file", async () => {
   if (dataStore) {
     await dataStore.addValue("Key", { test: "value" });
     await dataStore.addValue("Key1", { test1: "value1" });
@@ -47,10 +51,10 @@ test("Write to File", async () => {
     await dataStore.addValue("Key4", { test4: "value4" });
     await dataStore.addValue("Key5", { test5: "value5" });
     await dataStore.addValue("Key6", { test6: "value6" });
-    await expect(
-      dataStore.addValue("Key6", { test7: "value7" })
-    ).rejects.toEqual(new Error("Key already exists"));
 
+    await dataStore.addValue("Key6", { test7: "value7" }).catch((err) => {
+      expect(err).toEqual("Key already exists");
+    });
     dataStore.getFileData().then((data) => {
       const jsonData = JSON.parse(data);
       expect(jsonData).toStrictEqual({
@@ -63,5 +67,41 @@ test("Write to File", async () => {
         Key6: { test6: "value6" },
       });
     });
+  }
+});
+
+test("Delete key value pair", async () => {
+  if (dataStore) {
+    await dataStore.deleteValue("Key3");
+    await dataStore.deleteValue("Key4");
+
+    await dataStore.deleteValue("key").catch((err) => {
+      expect(err).toEqual("Key doesn't exist");
+    });
+    dataStore.getFileData().then((data) => {
+      const jsonData = JSON.parse(data);
+      expect(jsonData).toStrictEqual({
+        Key: { test: "value" },
+        Key1: { test1: "value1" },
+        Key2: { test2: "value2" },
+        Key5: { test5: "value5" },
+        Key6: { test6: "value6" },
+      });
+    });
+  }
+});
+
+test("Get value from file", async () => {
+  if (dataStore) {
+    let result = await dataStore.getValue("Key");
+    let result1 = await dataStore.getValue("Key1");
+    let result2 = await dataStore.getValue("Key2");
+
+    dataStore.getValue("key").catch((err) => {
+      expect(err).toEqual("Key doesn't exist");
+    });
+    expect(result).toStrictEqual({ test: "value" });
+    expect(result1).toStrictEqual({ test1: "value1" });
+    expect(result2).toStrictEqual({ test2: "value2" });
   }
 });
