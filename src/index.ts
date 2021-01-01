@@ -10,7 +10,7 @@ class DataStore implements IDataStore {
       ? this.path.resolve(filePath)
       : this.path.join(__dirname, "datastore.json");
     return new Promise<boolean>((resolve, reject) => {
-      this.fs.writeFile(this.filePath, "{}", (err: Error) => {
+      this.fs.writeFile(this.filePath, "{}", (err: any) => {
         if (err) return reject(err);
         resolve(true);
       });
@@ -18,12 +18,13 @@ class DataStore implements IDataStore {
   };
 
   deleteFile = () => {
-    return new Promise<boolean>((resovle, reject) =>
+    return new Promise<boolean>((resovle, reject) => {
+      if (this.filePath === "") return reject("File has not been initialized");
       this.fs.unlink(this.getFilePath(), (err: any) => {
         if (err) return reject(err);
         resovle(true);
-      })
-    );
+      });
+    });
   };
 
   getFilePath = () => {
@@ -31,11 +32,11 @@ class DataStore implements IDataStore {
   };
 
   getFileData = () => {
-    if (this.filePath === "") throw new Error("File not Created");
     return new Promise<string>((resolve, reject) => {
+      if (this.filePath === "") return reject("File has not been initialized");
       this.fs.readFile(this.filePath, (err: any, data: string) => {
         if (err && err.code === "ENOENT") {
-          return reject("File not Present");
+          return reject("File doesn't exist");
         } else if (err) {
           return reject(err);
         } else {
@@ -47,11 +48,19 @@ class DataStore implements IDataStore {
 
   addValue = (key: string, value: Object) => {
     return new Promise<boolean>((resolve, reject) => {
+      if (this.filePath === "") return reject("File has not been initialized");
+      const size = Buffer.byteLength(JSON.stringify(value));
+      if (key.length > 32)
+        return reject("Key cannot be greater than 32 characters");
+      if (size / 1024 > 16) return reject("Value cannot be greater than 16kb");
       this.getFileData()
         .then((data: string) => {
           const jsonData = JSON.parse(data);
           if (key in jsonData) return reject("Key already exists");
           jsonData[key] = value;
+          const jsonSize = Buffer.byteLength(JSON.stringify(jsonData));
+          if (jsonSize / 1073741824 > 1)
+            return reject("File size is greater than 1gb");
           this.fs.writeFile(
             this.filePath,
             JSON.stringify(jsonData),
@@ -67,6 +76,9 @@ class DataStore implements IDataStore {
 
   getValue = (key: string) => {
     return new Promise<Object>((resolve, reject) => {
+      if (this.filePath === "") return reject("File has not been initialized");
+      if (key.length > 32)
+        return reject("Key cannot be greater than 32 characters");
       this.getFileData().then((data: string) => {
         const jsonData = JSON.parse(data);
         if (key in jsonData === false) return reject("Key doesn't exist");
@@ -77,6 +89,9 @@ class DataStore implements IDataStore {
 
   deleteValue = (key: string) => {
     return new Promise<boolean>((resolve, reject) => {
+      if (this.filePath === "") return reject("File has not been initialized");
+      if (key.length > 32)
+        return reject("Key cannot be greater than 32 characters");
       this.getFileData().then((data: string) => {
         const jsonData = JSON.parse(data);
         if (key in jsonData === false) return reject("Key doesn't exist");

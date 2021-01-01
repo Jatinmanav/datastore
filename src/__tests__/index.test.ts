@@ -30,7 +30,9 @@ test("Read data store file", async () => {
   }
 
   if (dataStore2) {
-    expect(dataStore2.getFileData).toThrow("File not Created");
+    dataStore2
+      .getFileData()
+      .catch((err) => expect(err).toEqual("File has not been initialized"));
   }
 });
 
