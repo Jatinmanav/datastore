@@ -1,5 +1,5 @@
 {
-  "name": "datastore",
+  "name": "datastore-json-file",
   "version": "1.0.0",
   "description": "",
   "main": "lib/index.js",
@@ -9,8 +9,14 @@
     "test": "jest --config jestconfig.json",
     "watch": "jest --watch --config jestconfig.json"
   },
-  "keywords": [],
-  "author": "",
+  "keywords": [
+    "datastore"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Jatinmanav/datastore.git"
+  },
+  "author": "Jatin Manav",
   "license": "ISC",
   "devDependencies": {
     "@babel/core": "^7.12.10",
