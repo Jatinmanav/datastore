@@ -1,5 +1,5 @@
 export default interface IDataStore {
-  addValue(key: string, value: Object): Promise<boolean>;
+  addValue(key: string, value: Object, ttl?: number): Promise<boolean>;
   createFile(filePath?: string): Promise<boolean>;
   deleteFile(): Promise<boolean>;
   getValue(key: string): Promise<Object>;

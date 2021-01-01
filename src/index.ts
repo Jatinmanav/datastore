@@ -4,7 +4,8 @@ class DataStore implements IDataStore {
   private filePath: string = "";
   private fs = require("fs");
   private path = require("path");
-  static fileState = new Map<string, boolean>();
+  private static fileState = new Map<string, boolean>();
+  private static keyTTL = new Map<string, Map<string, [Date, number]>>();
 
   createFile = (filePath?: string) => {
     this.filePath = filePath
@@ -22,50 +23,13 @@ class DataStore implements IDataStore {
           return reject(err);
         }
         DataStore.fileState.set(this.filePath, false);
+        DataStore.keyTTL.set(this.filePath, new Map<string, [Date, number]>());
         return resolve(true);
       });
     });
   };
 
-  deleteFile = () => {
-    return new Promise<boolean>((resovle, reject) => {
-      if (this.filePath === "") return reject("File has not been initialized");
-      if (DataStore.fileState.get(this.filePath)) {
-        return reject("File is in use");
-      }
-      DataStore.fileState.set(this.filePath, true);
-      this.fs.unlink(this.getFilePath(), (err: any) => {
-        if (err) {
-          DataStore.fileState.set(this.filePath, false);
-          return reject(err);
-        }
-        DataStore.fileState.delete(this.filePath);
-        this.filePath = "";
-        return resovle(true);
-      });
-    });
-  };
-
-  getFilePath = () => {
-    return this.filePath;
-  };
-
-  getFileData = () => {
-    return new Promise<string>((resolve, reject) => {
-      if (this.filePath === "") return reject("File has not been initialized");
-      this.fs.readFile(this.filePath, (err: any, data: string) => {
-        if (err && err.code === "ENOENT") {
-          return reject("File doesn't exist");
-        } else if (err) {
-          return reject(err);
-        } else {
-          return resolve(data);
-        }
-      });
-    });
-  };
-
-  addValue = (key: string, value: Object) => {
+  addValue = (key: string, value: Object, ttl?: number) => {
     return new Promise<boolean>((resolve, reject) => {
       if (this.filePath === "") return reject("File has not been initialized");
       if (DataStore.fileState.get(this.filePath)) {
@@ -102,6 +66,12 @@ class DataStore implements IDataStore {
                 DataStore.fileState.set(this.filePath, false);
                 return reject(err);
               }
+              let newKeyTTL = DataStore.keyTTL.get(this.filePath);
+              if (newKeyTTL) {
+                if (ttl !== undefined) newKeyTTL.set(key, [new Date(), ttl]);
+                else newKeyTTL.set(key, [new Date(), -1]);
+                DataStore.keyTTL.set(this.filePath, newKeyTTL);
+              }
               DataStore.fileState.set(this.filePath, false);
               return resolve(true);
             }
@@ -111,6 +81,25 @@ class DataStore implements IDataStore {
           DataStore.fileState.set(this.filePath, false);
           return reject(err);
         });
+    });
+  };
+
+  getFilePath = () => {
+    return this.filePath;
+  };
+
+  getFileData = () => {
+    return new Promise<string>((resolve, reject) => {
+      if (this.filePath === "") return reject("File has not been initialized");
+      this.fs.readFile(this.filePath, (err: any, data: string) => {
+        if (err && err.code === "ENOENT") {
+          return reject("File doesn't exist");
+        } else if (err) {
+          return reject(err);
+        } else {
+          return resolve(data);
+        }
+      });
     });
   };
 
@@ -131,6 +120,22 @@ class DataStore implements IDataStore {
           return reject("Key doesn't exist");
         }
         DataStore.fileState.set(this.filePath, false);
+        let newKeyTTL = DataStore.keyTTL.get(this.filePath);
+        if (newKeyTTL) {
+          let ttlValue = newKeyTTL.get(key);
+          if (ttlValue) {
+            const [creationTime, ttl] = ttlValue;
+            if (ttl !== -1) {
+              const timeNow = new Date();
+              const seconds = Math.floor(
+                timeNow.getTime() - creationTime.getTime() / 1000
+              );
+              if (seconds > ttl) {
+                return reject("The provided key has expired");
+              }
+            }
+          }
+        }
         return resolve(jsonData[key]);
       });
     });
@@ -152,6 +157,27 @@ class DataStore implements IDataStore {
           DataStore.fileState.set(this.filePath, false);
           return reject("Key doesn't exist");
         }
+        let newKeyTTL = DataStore.keyTTL.get(this.filePath);
+        if (newKeyTTL) {
+          let ttlValue = newKeyTTL.get(key);
+          if (ttlValue) {
+            const [creationTime, ttl] = ttlValue;
+            if (ttl !== -1) {
+              const timeNow = new Date();
+              const seconds = Math.floor(
+                timeNow.getTime() - creationTime.getTime() / 1000
+              );
+              if (seconds > ttl) {
+                newKeyTTL.delete(key);
+                DataStore.keyTTL.set(this.filePath, newKeyTTL);
+                DataStore.fileState.set(this.filePath, false);
+                return reject("The provided key has expired");
+              }
+            }
+            newKeyTTL.delete(key);
+            DataStore.keyTTL.set(this.filePath, newKeyTTL);
+          }
+        }
         delete jsonData[key];
         this.fs.writeFile(
           this.filePath,
@@ -165,6 +191,25 @@ class DataStore implements IDataStore {
             return resolve(true);
           }
         );
+      });
+    });
+  };
+
+  deleteFile = () => {
+    return new Promise<boolean>((resovle, reject) => {
+      if (this.filePath === "") return reject("File has not been initialized");
+      if (DataStore.fileState.get(this.filePath)) {
+        return reject("File is in use");
+      }
+      DataStore.fileState.set(this.filePath, true);
+      this.fs.unlink(this.getFilePath(), (err: any) => {
+        if (err) {
+          DataStore.fileState.set(this.filePath, false);
+          return reject(err);
+        }
+        DataStore.fileState.delete(this.filePath);
+        this.filePath = "";
+        return resovle(true);
       });
     });
   };

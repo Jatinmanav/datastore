@@ -124,3 +124,18 @@ test("Check for concurrency", async () => {
       .catch((err) => expect(err).toEqual("File is in use"));
   }
 });
+
+test("Check ttl", async () => {
+  if (dataStore) {
+    await dataStore.addValue("testInputTTL", { key: "value" }, 0);
+    await dataStore
+      .getValue("testInputTTL")
+      .catch((err) => expect(err).toEqual("The provided key has expired"));
+    await dataStore
+      .deleteValue("testInputTTL")
+      .catch((err) => expect(err).toEqual("The provided key has expired"));
+    await dataStore
+      .getValue("testInputTTL")
+      .catch((err) => expect(err).toEqual("Key dosen't exist"));
+  }
+});
