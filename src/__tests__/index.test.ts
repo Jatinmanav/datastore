@@ -23,7 +23,7 @@ test("Data store is initialized", () => {
 
 test("Read data store file", async () => {
   if (dataStore) {
-    dataStore.getFileData().then((data) => {
+    await dataStore.getFileData().then((data) => {
       const jsonData = JSON.parse(data);
       expect(jsonData).toStrictEqual({});
     });
@@ -99,7 +99,7 @@ test("Get value from file", async () => {
     let result1 = await dataStore.getValue("Key1");
     let result2 = await dataStore.getValue("Key2");
 
-    dataStore.getValue("key").catch((err) => {
+    await dataStore.getValue("key").catch((err) => {
       expect(err).toEqual("Key doesn't exist");
     });
     expect(result).toStrictEqual({ test: "value" });

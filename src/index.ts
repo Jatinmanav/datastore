@@ -4,6 +4,7 @@ class DataStore implements IDataStore {
   private filePath: string = "";
   private fs = require("fs");
   private path = require("path");
+  static fileState = new Map<string, boolean>();
 
   createFile = (filePath?: string) => {
     this.filePath = filePath
@@ -12,7 +13,8 @@ class DataStore implements IDataStore {
     return new Promise<boolean>((resolve, reject) => {
       this.fs.writeFile(this.filePath, "{}", (err: any) => {
         if (err) return reject(err);
-        resolve(true);
+        DataStore.fileState.set(this.filePath, false);
+        return resolve(true);
       });
     });
   };
@@ -20,9 +22,18 @@ class DataStore implements IDataStore {
   deleteFile = () => {
     return new Promise<boolean>((resovle, reject) => {
       if (this.filePath === "") return reject("File has not been initialized");
+      if (DataStore.fileState.get(this.filePath)) {
+        return reject("File is in use");
+      }
+      DataStore.fileState.set(this.filePath, true);
       this.fs.unlink(this.getFilePath(), (err: any) => {
-        if (err) return reject(err);
-        resovle(true);
+        if (err) {
+          DataStore.fileState.set(this.filePath, false);
+          return reject(err);
+        }
+        DataStore.fileState.delete(this.filePath);
+        this.filePath = "";
+        return resovle(true);
       });
     });
   };
@@ -40,7 +51,7 @@ class DataStore implements IDataStore {
         } else if (err) {
           return reject(err);
         } else {
-          resolve(data);
+          return resolve(data);
         }
       });
     });
@@ -49,40 +60,70 @@ class DataStore implements IDataStore {
   addValue = (key: string, value: Object) => {
     return new Promise<boolean>((resolve, reject) => {
       if (this.filePath === "") return reject("File has not been initialized");
+      if (DataStore.fileState.get(this.filePath)) {
+        return reject("File is in use");
+      }
+      DataStore.fileState.set(this.filePath, true);
       const size = Buffer.byteLength(JSON.stringify(value));
-      if (key.length > 32)
+      if (key.length > 32) {
+        DataStore.fileState.set(this.filePath, false);
         return reject("Key cannot be greater than 32 characters");
-      if (size / 1024 > 16) return reject("Value cannot be greater than 16kb");
+      }
+      if (size / 1024 > 16) {
+        DataStore.fileState.set(this.filePath, false);
+        return reject("Value cannot be greater than 16kb");
+      }
       this.getFileData()
         .then((data: string) => {
           const jsonData = JSON.parse(data);
-          if (key in jsonData) return reject("Key already exists");
+          if (key in jsonData) {
+            DataStore.fileState.set(this.filePath, false);
+            return reject("Key already exists");
+          }
           jsonData[key] = value;
           const jsonSize = Buffer.byteLength(JSON.stringify(jsonData));
-          if (jsonSize / 1073741824 > 1)
+          if (jsonSize / 1073741824 > 1) {
+            DataStore.fileState.set(this.filePath, false);
             return reject("File size is greater than 1gb");
+          }
           this.fs.writeFile(
             this.filePath,
             JSON.stringify(jsonData),
             (err: any) => {
-              if (err) return reject(err);
-              resolve(true);
+              if (err) {
+                DataStore.fileState.set(this.filePath, false);
+                return reject(err);
+              }
+              DataStore.fileState.set(this.filePath, false);
+              return resolve(true);
             }
           );
         })
-        .catch((err) => reject(err));
+        .catch((err) => {
+          DataStore.fileState.set(this.filePath, false);
+          return reject(err);
+        });
     });
   };
 
   getValue = (key: string) => {
     return new Promise<Object>((resolve, reject) => {
       if (this.filePath === "") return reject("File has not been initialized");
-      if (key.length > 32)
+      if (DataStore.fileState.get(this.filePath))
+        return reject("File is in use");
+      DataStore.fileState.set(this.filePath, true);
+      if (key.length > 32) {
+        DataStore.fileState.set(this.filePath, false);
         return reject("Key cannot be greater than 32 characters");
+      }
       this.getFileData().then((data: string) => {
         const jsonData = JSON.parse(data);
-        if (key in jsonData === false) return reject("Key doesn't exist");
-        resolve(jsonData[key]);
+        if (key in jsonData === false) {
+          DataStore.fileState.set(this.filePath, false);
+          return reject("Key doesn't exist");
+        }
+        DataStore.fileState.set(this.filePath, false);
+        return resolve(jsonData[key]);
       });
     });
   };
@@ -90,18 +131,30 @@ class DataStore implements IDataStore {
   deleteValue = (key: string) => {
     return new Promise<boolean>((resolve, reject) => {
       if (this.filePath === "") return reject("File has not been initialized");
-      if (key.length > 32)
+      if (DataStore.fileState.get(this.filePath))
+        return reject("File is in use");
+      DataStore.fileState.set(this.filePath, true);
+      if (key.length > 32) {
+        DataStore.fileState.set(this.filePath, false);
         return reject("Key cannot be greater than 32 characters");
+      }
       this.getFileData().then((data: string) => {
         const jsonData = JSON.parse(data);
-        if (key in jsonData === false) return reject("Key doesn't exist");
+        if (key in jsonData === false) {
+          DataStore.fileState.set(this.filePath, false);
+          return reject("Key doesn't exist");
+        }
         delete jsonData[key];
         this.fs.writeFile(
           this.filePath,
           JSON.stringify(jsonData),
           (err: any) => {
-            if (err) return reject(err);
-            resolve(true);
+            if (err) {
+              DataStore.fileState.set(this.filePath, false);
+              return reject(err);
+            }
+            DataStore.fileState.set(this.filePath, false);
+            return resolve(true);
           }
         );
       });
