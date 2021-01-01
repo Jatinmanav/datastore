@@ -16,9 +16,15 @@ afterAll(async () => {
   if (dataStore) await dataStore.deleteFile();
 });
 
-test("Data store is initialized", () => {
+test("Data store is initialized", async () => {
   if (dataStore)
     expect(dataStore.getFilePath()).toBe(path.resolve("test.json"));
+
+  if (dataStore2) {
+    await dataStore2
+      .createFile("test.txt")
+      .catch((err) => expect(err).toEqual("File should be of type JSON"));
+  }
 });
 
 test("Read data store file", async () => {
@@ -105,5 +111,16 @@ test("Get value from file", async () => {
     expect(result).toStrictEqual({ test: "value" });
     expect(result1).toStrictEqual({ test1: "value1" });
     expect(result2).toStrictEqual({ test2: "value2" });
+  }
+});
+
+test("Check for concurrency", async () => {
+  if (dataStore) {
+    const dataStore3 = new DataStore();
+    await dataStore3.createFile("test.json");
+    await dataStore.addValue("testInput", { key: "value" });
+    await dataStore3
+      .addValue("testInp", { key: "value" })
+      .catch((err) => expect(err).toEqual("File is in use"));
   }
 });

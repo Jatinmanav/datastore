@@ -11,8 +11,16 @@ class DataStore implements IDataStore {
       ? this.path.resolve(filePath)
       : this.path.join(__dirname, "datastore.json");
     return new Promise<boolean>((resolve, reject) => {
+      if (this.path.extname(this.filePath) !== ".json") {
+        this.filePath = "";
+        return reject("File should be of type JSON");
+      }
+      if (DataStore.fileState.has(this.filePath)) return resolve(true);
       this.fs.writeFile(this.filePath, "{}", (err: any) => {
-        if (err) return reject(err);
+        if (err) {
+          this.filePath = "";
+          return reject(err);
+        }
         DataStore.fileState.set(this.filePath, false);
         return resolve(true);
       });
